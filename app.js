@@ -197,6 +197,7 @@ app.get("/v1/profile/:id", async (req, res) => {
   }
 });
 
+//update user info
 app.patch("/v1/profile/:id", async (req, res) => {
   const client = await pool.connect();
 
@@ -286,9 +287,12 @@ app.post("/v1/listings", async (req, res) => {
       type,
       offer,
       imageurls,
+      latitude, 
+      longitude, 
+      phoneNumber
     } = req.body;
     const listing = await client.query(
-      "INSERT INTO listings (user_id, name, description, address, regularprice, discountedprice, bathrooms,bedrooms, furnished, parking, type, offer, imageurls) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13 ) RETURNING *",
+      "INSERT INTO listings (user_id, name, description, address, regularprice, discountedprice, bathrooms,bedrooms, furnished, parking, type, offer, imageurls,latitude,longitude, phoneNumber) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16 ) RETURNING *",
       [
         userIdentity.id,
         name,
@@ -303,6 +307,9 @@ app.post("/v1/listings", async (req, res) => {
         type,
         offer,
         imageurls,
+        latitude, 
+        longitude, 
+        phoneNumber
       ],
     );
 
@@ -418,6 +425,9 @@ app.put("/v1/listings/:listing_id", async (req, res) => {
       type,
       offer,
       imageurls,
+      latitude, 
+      longitude, 
+      phoneNumber
     } = req.body;
 
     const listingExists = await client.query(
@@ -432,8 +442,8 @@ app.put("/v1/listings/:listing_id", async (req, res) => {
         });
     }
     const updatedListing = await client.query(
-      `UPDATE listings SET name = $1, description = $2, address = $3, regularprice = $4, discountedprice = $5, bathrooms = $6, bedrooms = $7, furnished = $8, parking = $9, type = $10, offer = $11, imageurls = $12, updated_at = NOW()
-        WHERE id = $13
+      `UPDATE listings SET name = $1, description = $2, address = $3, regularprice = $4, discountedprice = $5, bathrooms = $6, bedrooms = $7, furnished = $8, parking = $9, type = $10, offer = $11, imageurls = $12,latitude=$13,longitude=$14, phoneNumber=$15, updated_at = NOW()
+        WHERE id = $16
         RETURNING *
       `,
       [
@@ -449,6 +459,9 @@ app.put("/v1/listings/:listing_id", async (req, res) => {
         type,
         offer,
         imageurls,
+        latitude, 
+        longitude, 
+        phoneNumber,
         listing_id,
       ],
     );
