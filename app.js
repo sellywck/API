@@ -491,7 +491,7 @@ app.get("/v1/listings/landlord/:listing_id", async (req, res) => {
       });
     }
     const listingInfo = await client.query(
-      `SELECT users.email, users.username FROM listings INNER JOIN users on listings.user_id = users.id WHERE listings.id = $1
+      `SELECT users.email, users.username, listings.phonenumber FROM listings INNER JOIN users on listings.user_id = users.id WHERE listings.id = $1
         `,
       [listing_id]
     );
