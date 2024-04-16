@@ -383,7 +383,7 @@ app.delete("/v1/listings/:listing_id", async (req, res) => {
     );
     if (result.rowCount === 1) {
       res.status(200).json({
-        id: listing_id,
+        id: parseInt(listing_id),
         message: `Listing with id ${listing_id} deleted successfully`,
       });
     } else {
