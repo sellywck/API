@@ -477,8 +477,8 @@ app.get("/v1/listings/landlord/:listing_id", async (req, res) => {
   const listing_id = req.params.listing_id;
 
   try {
-    const authToken = req.headers.authorization;
-    if (!authToken) return res.status(401).json({ message: "Access Denied" });
+    // const authToken = req.headers.authorization;
+    // if (!authToken) return res.status(401).json({ message: "Access Denied" });
     // console.log({ authToken });
 
     const listingExists = await client.query(
