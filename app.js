@@ -39,7 +39,7 @@ app.post("/v1/signup", async (req, res) => {
 
     let userResult = await client.query(
       "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email],
+      [email]
     );
 
     if (userResult.rows.length > 0) {
@@ -48,11 +48,11 @@ app.post("/v1/signup", async (req, res) => {
 
     await client.query(
       "INSERT INTO users (uid, email, username) VALUES($1, $2, $3)",
-      [uid, email, username],
+      [uid, email, username]
     );
     userResult = await client.query(
       "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email],
+      [email]
     );
     const user = userResult.rows[0];
     res
@@ -73,7 +73,7 @@ app.post("/v1/login", async (req, res) => {
     const { email } = req.body;
     const result = await client.query(
       "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email],
+      [email]
     );
     const user = result.rows[0];
     // console.log({user})
@@ -92,7 +92,7 @@ app.post("/v1/login", async (req, res) => {
         is_admin: user.is_admin,
       },
       SECRET_KEY,
-      { expiresIn: 86400 },
+      { expiresIn: 86400 }
     );
 
     res
@@ -115,21 +115,21 @@ app.post("/v1/login/sso", async (req, res) => {
     //check if the user exits,if not exists, insert into database
     let userResult = await client.query(
       "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email],
+      [email]
     );
     // console.log({ userResult });
 
     if (userResult.rows.length === 0) {
       await client.query(
         "INSERT INTO users (uid, email, username, profilepicture) VALUES($1, $2, $3, $4)",
-        [uid, email, username, profilepicture],
+        [uid, email, username, profilepicture]
       );
     }
 
     //queries the database again to retrieve the user data after insertion. This is necessary because the user data might have been modified by other processes since the previous query.
     userResult = await client.query(
       "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email],
+      [email]
     );
     const user = userResult.rows[0];
     // console.log({ user });
@@ -142,7 +142,7 @@ app.post("/v1/login/sso", async (req, res) => {
         is_admin: user.is_admin,
       },
       SECRET_KEY,
-      { expiresIn: 86400 },
+      { expiresIn: 86400 }
     );
 
     res
@@ -237,7 +237,9 @@ app.patch("/v1/profile/:id", async (req, res) => {
       return res.status(400).json({ error: "No fields provided for update" });
     }
 
-    const updatedQuery = `UPDATE users SET ${updateFields.join(", ")} WHERE id = $${queryParams.length + 1} RETURNING *`;
+    const updatedQuery = `UPDATE users SET ${updateFields.join(
+      ", "
+    )} WHERE id = $${queryParams.length + 1} RETURNING *`;
 
     queryParams.push(id);
 
@@ -287,9 +289,9 @@ app.post("/v1/listings", async (req, res) => {
       type,
       offer,
       imageurls,
-      latitude, 
-      longitude, 
-      phoneNumber
+      latitude,
+      longitude,
+      phoneNumber,
     } = req.body;
     const listing = await client.query(
       "INSERT INTO listings (user_id, name, description, address, regularprice, discountedprice, bathrooms,bedrooms, furnished, parking, type, offer, imageurls,latitude,longitude, phoneNumber) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16 ) RETURNING *",
@@ -307,10 +309,10 @@ app.post("/v1/listings", async (req, res) => {
         type,
         offer,
         imageurls,
-        latitude, 
-        longitude, 
-        phoneNumber
-      ],
+        latitude,
+        longitude,
+        phoneNumber,
+      ]
     );
 
     res.status(201).json(listing.rows[0]);
@@ -335,7 +337,7 @@ app.get("/v1/listings", async (req, res) => {
 
     const listings = await client.query(
       "SELECT * FROM listings WHERE user_id = $1 ORDER BY created_at DESC",
-      [userIdentity.id],
+      [userIdentity.id]
     );
     res.json(listings.rows);
   } catch (error) {
@@ -347,12 +349,10 @@ app.get("/v1/listings", async (req, res) => {
 });
 
 //get specific listing
-app.get("/v1/listings/:listing_id", async (req , res) => {
-  
- const client = await pool.connect();
-  const listing_id = req.params.listing_id
+app.get("/v1/listings/:listing_id", async (req, res) => {
+  const client = await pool.connect();
+  const listing_id = req.params.listing_id;
   try {
-
     const listing = await client.query(
       "SELECT * FROM listings WHERE id = $1 ",
       [listing_id]
@@ -379,14 +379,13 @@ app.delete("/v1/listings/:listing_id", async (req, res) => {
 
     const result = await client.query(
       "DELETE FROM listings WHERE id = $1 AND user_id = $2",
-      [listing_id, userId],
+      [listing_id, userId]
     );
     if (result.rowCount === 1) {
-      res
-        .status(200)
-        .json({
-          message: `Listing with id ${listing_id} deleted successfully`,
-        });
+      res.status(200).json({
+        id: listing_id,
+        message: `Listing with id ${listing_id} deleted successfully`,
+      });
     } else {
       res
         .status(400)
@@ -425,21 +424,19 @@ app.put("/v1/listings/:listing_id", async (req, res) => {
       type,
       offer,
       imageurls,
-      latitude, 
-      longitude, 
-      phoneNumber
+      latitude,
+      longitude,
+      phoneNumber,
     } = req.body;
 
     const listingExists = await client.query(
       "SELECT * FROM listings WHERE id = $1 AND user_id = $2 ",
-      [listing_id, userId],
+      [listing_id, userId]
     );
     if (listingExists.rowCount === 0) {
-      return res
-        .status(400)
-        .json({
-          error: `Listing with id ${listing_id} not found or does not belong to the authenticated user.`,
-        });
+      return res.status(400).json({
+        error: `Listing with id ${listing_id} not found or does not belong to the authenticated user.`,
+      });
     }
     const updatedListing = await client.query(
       `UPDATE listings SET name = $1, description = $2, address = $3, regularprice = $4, discountedprice = $5, bathrooms = $6, bedrooms = $7, furnished = $8, parking = $9, type = $10, offer = $11, imageurls = $12,latitude=$13,longitude=$14, phoneNumber=$15, updated_at = NOW()
@@ -459,11 +456,11 @@ app.put("/v1/listings/:listing_id", async (req, res) => {
         type,
         offer,
         imageurls,
-        latitude, 
-        longitude, 
+        latitude,
+        longitude,
         phoneNumber,
         listing_id,
-      ],
+      ]
     );
     res.status(200).json(updatedListing.rows[0]);
   } catch (error) {
@@ -477,37 +474,35 @@ app.put("/v1/listings/:listing_id", async (req, res) => {
 //getListingLandlordEmail
 app.get("/v1/listings/landlord/:listing_id", async (req, res) => {
   const client = await pool.connect();
-    const listing_id = req.params.listing_id;
+  const listing_id = req.params.listing_id;
 
-    try {
-      const authToken = req.headers.authorization;
-      if (!authToken) return res.status(401).json({ message: "Access Denied" });
-      // console.log({ authToken });
+  try {
+    const authToken = req.headers.authorization;
+    if (!authToken) return res.status(401).json({ message: "Access Denied" });
+    // console.log({ authToken });
 
-
-      const listingExists = await client.query(
-        "SELECT * FROM listings WHERE id = $1",
-        [listing_id],
-      );
-      if (listingExists.rowCount === 0) {
-        return res
-          .status(400)
-          .json({
-            error: `Listing with id ${listing_id} not found!`,
-          });
-      }
-      const listingInfo = await client.query(
-        `SELECT users.email, users.username FROM listings INNER JOIN users on listings.user_id = users.id WHERE listings.id = $1
-        `, [listing_id]);
-      res.status(200).json(listingInfo.rows[0]);
-    } catch (error) {
-      console.error("Error: ", error.message);
-      res.status(500).json({ error: error.message });
-    } finally {
-      client.release();
+    const listingExists = await client.query(
+      "SELECT * FROM listings WHERE id = $1",
+      [listing_id]
+    );
+    if (listingExists.rowCount === 0) {
+      return res.status(400).json({
+        error: `Listing with id ${listing_id} not found!`,
+      });
     }
-  });
-
+    const listingInfo = await client.query(
+      `SELECT users.email, users.username FROM listings INNER JOIN users on listings.user_id = users.id WHERE listings.id = $1
+        `,
+      [listing_id]
+    );
+    res.status(200).json(listingInfo.rows[0]);
+  } catch (error) {
+    console.error("Error: ", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
 
 //search
 app.get("/v1/alllistings", async (req, res) => {
@@ -518,21 +513,23 @@ app.get("/v1/alllistings", async (req, res) => {
     const startIndex = parseInt(req.query.startIndex) || 0;
 
     let offer = req.query.offer;
-    offer = (offer === undefined || offer === 'false') ? [false, true] : [true];
+    offer = offer === undefined || offer === "false" ? [false, true] : [true];
 
     let furnished = req.query.furnished;
-    furnished = (furnished === undefined || furnished === 'false') ? [false, true] : [true];
+    furnished =
+      furnished === undefined || furnished === "false" ? [false, true] : [true];
 
     let parking = req.query.parking;
-    parking = (parking === undefined || parking === 'false') ? [false, true] : [true];
+    parking =
+      parking === undefined || parking === "false" ? [false, true] : [true];
 
     let type = req.query.type;
-    type = (type === undefined || type === 'all') ? ['sale', 'rent'] : [type];
+    type = type === undefined || type === "all" ? ["sale", "rent"] : [type];
 
-    const searchTerm = `%${req.query.searchTerm || ''}%`;
+    const searchTerm = `%${req.query.searchTerm || ""}%`;
 
-    const sort = req.query.sort || 'created_at';
-    const order = req.query.order || 'desc';
+    const sort = req.query.sort || "created_at";
+    const order = req.query.order || "desc";
 
     const listings = await client.query(
       `SELECT * FROM listings 
@@ -549,7 +546,9 @@ app.get("/v1/alllistings", async (req, res) => {
     return res.status(200).json(listings.rows);
   } catch (error) {
     console.error("Error: ", error.message);
-    res.status(500).json({ error: "An error occurred while fetching listings." });
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching listings." });
   } finally {
     client.release();
   }
