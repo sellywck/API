@@ -557,6 +557,8 @@ app.get("/v1/alllistings", async (req, res) => {
 //Likes
 //to get likes for a specific listing 
 app.get("/v1/likes/listings/:listing_id", async(req, res)=> {
+  const client = await pool.connect ()
+  const {listing_id} = req.params
   try {
     const likes = await client.query(`SELECT users.username, users.id AS user_id, likes_id FROM likes INNER JOIN ON likes.user_id = users.id WHERE likes.listing_id = $1 AND active = true`,[listing_id])
     res.json([likes.rows])
