@@ -554,6 +554,61 @@ app.get("/v1/alllistings", async (req, res) => {
   }
 });
 
+//Likes
+//to get likes for a specific listing 
+app.get("/v1/likes/listings/:listing_id", async(req, res)=> {
+  try {
+    const likes = await client.query(`SELECT users.username, users.id AS user_id, likes_id FROM likes INNER JOIN ON likes.user_id = users.id WHERE likes.listing_id = $1 AND active = true`,[listing_id])
+    res.json([likes.rows])
+  } catch (error) {
+    console.error("Error: ", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+})
+
+//to like a listing
+app.post("/v1/likes", async(req , res)=> {
+  const {user_id, listing_id} = req.body
+  const client = await pool.connect();
+  try {
+    //check if an inactive like for this user and listing already exists
+    const prevLike = await client.query(`SELECT * FROM likes WHERE user_id = $1 AND listing_id = $2 AND active = false`, [user_id, listing_id])
+
+    if(prevLike.rowCount === 0 ){
+      //if the inactive like exists, update it to active
+      const newLike = await client.query(`UPDATE likes SET active = true WHERE id = $1 RETURNING *`, [prevLike.rows[0].id]);
+      res.json({data:newLike.rows[0], message: `Like added successfully to listing with id ${listing_id} `})
+    } else {
+      //if it does not exists, insert new like row with active as true
+      const newLike = await client.query(`INSERT INTO likes (user_id, listing_id, created_at, active) VALUES ($1, $2, CURRENT_TIMESTAMP, true) RETURNING *`,  [user_id, listing_id])
+      res.json({data:newLike.rows[0], message: `Like added successfully to listing with id ${listing_id} `})
+    }
+    
+  } catch (error) {
+    console.error("Error: ", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+})
+
+// to unlike a listing 
+app.put("/v1/likes//:user_id/:listing_id", async(req , res)=> {
+  const {user_id, listing_id} = req.params
+  const client = await pool.connect();
+  try {
+    await client.query(`UPDATE likes SET active = false WHERE user_id =$1 AND listing_id = #2 AND active = true`, [user_id, listing_id])
+    res.json({message: "The like has been removed successfully!!"})
+
+  }  catch (error) {
+    console.error("Error: ", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+})
 /** Endpoint ended  */
 
 app.get("/", (req, res) => {
