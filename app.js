@@ -559,8 +559,13 @@ app.get("/v1/alllistings", async (req, res) => {
 app.get("/v1/likes/listings/:listing_id", async(req, res)=> {
   const client = await pool.connect ()
   const {listing_id} = req.params
+
+  const authToken = req.headers.authorization;
+  if (!authToken) return res.status(401).json({ message: "Access Denied" });
+  // console.log({ authToken });
+
   try {
-    const likes = await client.query(`SELECT users.username, users.id AS user_id, likes_id FROM likes INNER JOIN ON likes.user_id = users.id WHERE likes.listing_id = $1 AND active = true`,[listing_id])
+    const likes = await client.query(`SELECT users.username, users.id AS user_id, likes.id AS likes_id FROM likes INNER JOIN users ON likes.user_id = users.id WHERE likes.listing_id = $1 `,[listing_id])
     res.json([likes.rows])
   } catch (error) {
     console.error("Error: ", error.message);
@@ -570,47 +575,101 @@ app.get("/v1/likes/listings/:listing_id", async(req, res)=> {
   }
 })
 
-//to like a listing
 app.post("/v1/likes", async(req , res)=> {
-  const {user_id, listing_id} = req.body
-  const client = await pool.connect();
-  try {
-    //check if an inactive like for this user and listing already exists
-    const prevLike = await client.query(`SELECT * FROM likes WHERE user_id = $1 AND listing_id = $2 AND active = false`, [user_id, listing_id])
+    const { user_id, listing_id } = req.body;
+    const client = await pool.connect();
+    const authToken = req.headers.authorization;
 
-    if(prevLike.rowCount === 0 ){
-      //if the inactive like exists, update it to active
-      const newLike = await client.query(`UPDATE likes SET active = true WHERE id = $1 RETURNING *`, [prevLike.rows[0].id]);
-      res.json({data:newLike.rows[0], message: `Like added successfully to listing with id ${listing_id} `})
-    } else {
-      //if it does not exists, insert new like row with active as true
-      const newLike = await client.query(`INSERT INTO likes (user_id, listing_id, created_at, active) VALUES ($1, $2, CURRENT_TIMESTAMP, true) RETURNING *`,  [user_id, listing_id])
-      res.json({data:newLike.rows[0], message: `Like added successfully to listing with id ${listing_id} `})
+    try {
+      if (!authToken) return res.status(401).json({ message: "Access Denied" });
+
+      // Check if the like already exists
+      const existingLike = await client.query(
+        `SELECT * FROM likes WHERE user_id = $1 AND listing_id = $2`,
+        [user_id, listing_id]
+      );
+
+      if(existingLike.rowCount > 0) {
+        // If like exists, delete it (unlike)
+        await client.query(
+          `DELETE FROM likes WHERE user_id = $1 AND listing_id = $2`,
+          [user_id, listing_id]
+        );
+        return res.json({ message: "The like has been removed successfully" });
+      } else {
+        // If like doesn't exist, create it (like)
+        const newLike = await client.query(
+          `INSERT INTO likes (user_id, listing_id) VALUES ($1, $2) RETURNING *`,
+          [user_id, listing_id]
+        );
+        return res.json({
+          data: newLike.rows[0],
+          message: `Like added successfully to listing with id ${listing_id}`,
+        });
+      }
+    } catch (error) {
+      console.error("Error: ", error.message);
+      res.status(500).json({ error: error.message });
+    } finally {
+      client.release();
     }
-    
-  } catch (error) {
-    console.error("Error: ", error.message);
-    res.status(500).json({ error: error.message });
-  } finally {
-    client.release();
-  }
-})
+  });
 
-// to unlike a listing 
-app.put("/v1/likes//:user_id/:listing_id", async(req , res)=> {
-  const {user_id, listing_id} = req.params
-  const client = await pool.connect();
-  try {
-    await client.query(`UPDATE likes SET active = false WHERE user_id =$1 AND listing_id = #2 AND active = true`, [user_id, listing_id])
-    res.json({message: "The like has been removed successfully!!"})
+// //to like a listing
+// app.post("/v1/likes", async(req , res)=> {
+//   const {user_id, listing_id} = req.body
+//   const client = await pool.connect();
+//   const authToken = req.headers.authorization;
+//     if (!authToken) return res.status(401).json({ message: "Access Denied" });
+//     // console.log({ authToken });
+//   try {
+//     //check if the like exits 
+//     const existingLike  = await client.query(`SELECT * FROM likes WHERE user_id = $1 AND listing_id = $2 `, [user_id, listing_id])
 
-  }  catch (error) {
-    console.error("Error: ", error.message);
-    res.status(500).json({ error: error.message });
-  } finally {
-    client.release();
-  }
-})
+//     if(existingLike .rowCount > 0 ){
+//       return res.status(400).json({ message: "Like already exists" });
+//     } 
+
+//     const newLike = await client.query(`INSERT INTO likes (user_id, listing_id) VALUES ($1, $2) RETURNING *`,  [user_id, listing_id])
+//     res.json({data:newLike.rows[0], message: `Like added successfully to listing with id ${listing_id} `})
+
+//   } catch (error) {
+//     console.error("Error: ", error.message);
+//     res.status(500).json({ error: error.message });
+//   } finally {
+//     client.release();
+//   }
+// })
+
+// // to unlike a listing 
+// app.delete("/v1/likes/:like_id", async(req , res)=> {
+//   const {like_id} = req.params
+//   const client = await pool.connect();
+//   const authToken = req.headers.authorization;
+//     if (!authToken) return res.status(401).json({ message: "Access Denied" });
+//     // console.log({ authToken });
+
+//   try {
+//     const existingLike = await client.query(
+//       `SELECT * FROM likes WHERE id = $1`,
+//       [like_id]
+//     );
+
+//     if (existingLike.rowCount === 0) {
+//       return res.status(404).json({ message: "Like not found" });
+//     }
+
+//     // Delete the like
+//     await client.query(`DELETE FROM likes WHERE id = $1`, [like_id]);
+//     res.json({message: "The like has been removed successfully!!"})
+
+//   }  catch (error) {
+//     console.error("Error: ", error.message);
+//     res.status(500).json({ error: error.message });
+//   } finally {
+//     client.release();
+//   }
+// })
 /** Endpoint ended  */
 
 app.get("/", (req, res) => {
