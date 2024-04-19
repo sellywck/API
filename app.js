@@ -4,9 +4,9 @@ const cors = require("cors");
 const { Pool } = require("pg");
 // const bcrypt = require('bcryptjs');
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer")
 require("dotenv").config();
-const { DATABASE_URL, SECRET_KEY } = process.env;
-
+const { DATABASE_URL, SECRET_KEY, EMAIL, PASSWORD } = process.env;
 let app = express();
 app.use(cors());
 app.use(express.json());
@@ -30,6 +30,9 @@ async function getPostgresVersion() {
 
 getPostgresVersion();
 
+
+
+
 /** Authentication APIs **/
 app.post("/v1/signup", async (req, res) => {
   const client = await pool.connect();
@@ -50,6 +53,7 @@ app.post("/v1/signup", async (req, res) => {
       "INSERT INTO users (uid, email, username) VALUES($1, $2, $3)",
       [uid, email, username]
     );
+    await sendEmail(email, username);
     userResult = await client.query(
       "SELECT * FROM users WHERE email = $1 LIMIT 1",
       [email]
@@ -65,6 +69,103 @@ app.post("/v1/signup", async (req, res) => {
     client.release();
   }
 });
+
+app.post("/v1/login/sso", async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { uid, email, username, profilepicture } = req.body;
+
+    //check if the user exits,if not exists, insert into database
+    let userResult = await client.query(
+      "SELECT * FROM users WHERE email = $1 LIMIT 1",
+      [email]
+    );
+    // console.log({ userResult });
+
+    if (userResult.rows.length === 0) {
+      await client.query(
+        "INSERT INTO users (uid, email, username, profilepicture) VALUES($1, $2, $3, $4)",
+        [uid, email, username, profilepicture]
+      );
+      await sendEmail(email, username)
+    }
+
+    //queries the database again to retrieve the user data after insertion. This is necessary because the user data might have been modified by other processes since the previous query.
+    userResult = await client.query(
+      "SELECT * FROM users WHERE email = $1 LIMIT 1",
+      [email]
+    );
+    const user = userResult.rows[0];
+    // console.log({ user });
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        uid: user.uid,
+        email: user.email,
+        is_admin: user.is_admin,
+      },
+      SECRET_KEY,
+      { expiresIn: 86400 }
+    );
+
+    res
+      .status(200)
+      .json({ token: token, message: "User logged in successfully" });
+  } catch (error) {
+    console.error("Error: ", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+async function sendEmail(email, username) {
+  try{
+  const transporter = nodemailer.createTransport({
+    // host: "smtp.example.com",
+    // port: 587,
+    // secure: false,
+    service:'gmail',
+    auth: {
+      user: EMAIL,
+      pass: PASSWORD,
+    },
+  });
+  // send mail with defined transport object
+  const info = await transporter.sendMail({
+    from:` "PropertyPulse🏠 " <${EMAIL}>`, // sender address
+    to: email, // list of receivers
+    subject: "Welcome to PropertyPulse!!", // Subject line
+    html: `
+<div style="font-family: 'Arial', sans-serif; color: #333; background-color: #fff; border-radius: 5px; max-width: 600px; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <header style="background-color: #ef4444; padding: 20px; color: #fff; text-align: center;">
+    <h1 style="text-align: left;">PropertyPulse</h1>
+  </header>
+  <main style="padding: 30px;">
+    <h2>Hi, ${username}</h2>
+    <h2>Welcome onboard with us!</h2>
+    <p>Thank you for registering an account with us. We are excited to have you on board.</p>
+    <p>If you have any questions or need assistance, feel free to contact us.</p>
+    <p>Best regards,</p>
+    <p>PropertyPulse Team</p>
+  </main>
+  <footer style="background-color: #f2f2f2; padding: 10px; text-align: center; align-items: center;">
+    <p style="font-size: 12px; color: #666; text-align: center; align-items: center;">&copy; 2024 PropertyPulse</p>
+  </footer>
+</div>
+    `, 
+  });
+
+  console.log("Message sent: %s", info.messageId);
+
+  } catch (emailError) {
+    console.error("Error sending email:", emailError);
+  }
+  // Message sent: <d786aa62-4e0a-070a-47ed-0b0666549519@ethereal.email>
+}
+
 
 app.post("/v1/login", async (req, res) => {
   const client = await pool.connect();
@@ -105,57 +206,6 @@ app.post("/v1/login", async (req, res) => {
     client.release();
   }
 });
-
-app.post("/v1/login/sso", async (req, res) => {
-  const client = await pool.connect();
-
-  try {
-    const { uid, email, username, profilepicture } = req.body;
-
-    //check if the user exits,if not exists, insert into database
-    let userResult = await client.query(
-      "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email]
-    );
-    // console.log({ userResult });
-
-    if (userResult.rows.length === 0) {
-      await client.query(
-        "INSERT INTO users (uid, email, username, profilepicture) VALUES($1, $2, $3, $4)",
-        [uid, email, username, profilepicture]
-      );
-    }
-
-    //queries the database again to retrieve the user data after insertion. This is necessary because the user data might have been modified by other processes since the previous query.
-    userResult = await client.query(
-      "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email]
-    );
-    const user = userResult.rows[0];
-    // console.log({ user });
-
-    const token = jwt.sign(
-      {
-        id: user.id,
-        uid: user.uid,
-        email: user.email,
-        is_admin: user.is_admin,
-      },
-      SECRET_KEY,
-      { expiresIn: 86400 }
-    );
-
-    res
-      .status(200)
-      .json({ token: token, message: "User logged in successfully" });
-  } catch (error) {
-    console.error("Error: ", error.message);
-    res.status(500).json({ error: error.message });
-  } finally {
-    client.release();
-  }
-});
-
 // Update user information
 
 //get user info
