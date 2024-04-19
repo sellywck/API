@@ -555,7 +555,7 @@ app.get("/v1/alllistings", async (req, res) => {
 });
 
 //Likes
-//to get likes for a specific listing 
+//retrieves information about users who have liked a specific listing (:listing_id). It returns a list of users who have liked the listing along with their usernames, user IDs, and like IDs.
 app.get("/v1/likes/listings/:listing_id", async(req, res)=> {
   const client = await pool.connect ()
   const {listing_id} = req.params
@@ -575,12 +575,44 @@ app.get("/v1/likes/listings/:listing_id", async(req, res)=> {
   }
 })
 
+//retrieves information about listings that have been liked by a specific user (:user_id). It returns a list of listings that have been liked by the specified user, including their IDs, titles, and descriptions.
+app.get("/v1/likes/users/:user_id", async (req , res) => {
+  const client = await pool.connect();
+  const {user_id} = req.params
+  
+  const authToken = req.headers.authorization;
+  if (!authToken) return res.status(401).json({ message: "Access Denied" });
+  // console.log({ authToken });
+  
+  try{
+    const likedListing = await client.query(
+     `SELECT listings.id, listings.name, listings.description, listings.address, 
+             listings.regularprice, listings.discountedprice, listings.bathrooms, 
+             listings.bedrooms, listings.furnished, listings.parking, 
+             listings.type, listings.offer, listings.imageurls, listings.created_at, 
+             listings.updated_at
+      FROM likes
+      INNER JOIN listings ON likes.listing_id = listings.id
+      WHERE likes.user_id = $1`, [user_id]
+    )
+    res.json(likedListing.rows)
+
+  } catch (error) {
+    console.error("Error: ", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+  
+})
+
+//like and unlike endpoints 
 app.post("/v1/likes", async(req , res)=> {
     const { user_id, listing_id } = req.body;
     const client = await pool.connect();
-    const authToken = req.headers.authorization;
 
     try {
+    const authToken = req.headers.authorization;
       if (!authToken) return res.status(401).json({ message: "Access Denied" });
 
       // Check if the like already exists
@@ -615,62 +647,6 @@ app.post("/v1/likes", async(req , res)=> {
     }
   });
 
-// //to like a listing
-// app.post("/v1/likes", async(req , res)=> {
-//   const {user_id, listing_id} = req.body
-//   const client = await pool.connect();
-//   const authToken = req.headers.authorization;
-//     if (!authToken) return res.status(401).json({ message: "Access Denied" });
-//     // console.log({ authToken });
-//   try {
-//     //check if the like exits 
-//     const existingLike  = await client.query(`SELECT * FROM likes WHERE user_id = $1 AND listing_id = $2 `, [user_id, listing_id])
-
-//     if(existingLike .rowCount > 0 ){
-//       return res.status(400).json({ message: "Like already exists" });
-//     } 
-
-//     const newLike = await client.query(`INSERT INTO likes (user_id, listing_id) VALUES ($1, $2) RETURNING *`,  [user_id, listing_id])
-//     res.json({data:newLike.rows[0], message: `Like added successfully to listing with id ${listing_id} `})
-
-//   } catch (error) {
-//     console.error("Error: ", error.message);
-//     res.status(500).json({ error: error.message });
-//   } finally {
-//     client.release();
-//   }
-// })
-
-// // to unlike a listing 
-// app.delete("/v1/likes/:like_id", async(req , res)=> {
-//   const {like_id} = req.params
-//   const client = await pool.connect();
-//   const authToken = req.headers.authorization;
-//     if (!authToken) return res.status(401).json({ message: "Access Denied" });
-//     // console.log({ authToken });
-
-//   try {
-//     const existingLike = await client.query(
-//       `SELECT * FROM likes WHERE id = $1`,
-//       [like_id]
-//     );
-
-//     if (existingLike.rowCount === 0) {
-//       return res.status(404).json({ message: "Like not found" });
-//     }
-
-//     // Delete the like
-//     await client.query(`DELETE FROM likes WHERE id = $1`, [like_id]);
-//     res.json({message: "The like has been removed successfully!!"})
-
-//   }  catch (error) {
-//     console.error("Error: ", error.message);
-//     res.status(500).json({ error: error.message });
-//   } finally {
-//     client.release();
-//   }
-// })
-/** Endpoint ended  */
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname + "/index.html"));
