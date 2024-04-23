@@ -31,8 +31,6 @@ async function getPostgresVersion() {
 getPostgresVersion();
 
 
-
-
 /** Authentication APIs **/
 app.post("/v1/signup", async (req, res) => {
   const client = await pool.connect();
@@ -157,7 +155,9 @@ async function sendEmail(email, username) {
 </div>
     `, 
   });
-
+  res
+  .status(200)
+  .json("Message sent: %s", info.messageId);
   console.log("Message sent: %s", info.messageId);
 
   } catch (emailError) {
@@ -303,7 +303,7 @@ app.patch("/v1/profile/:id", async (req, res) => {
     const updatedUser = await client.query(updatedQuery, queryParams);
     res.status(200).json({
       data: updatedUser.rows[0],
-      message: "User updated successfully!",
+      message: "User profile updated successfully!",
     });
   } catch (error) {
     console.error("Error: ", error.message);
